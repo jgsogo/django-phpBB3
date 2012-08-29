@@ -3,7 +3,7 @@
 """
     models
     ~~~~~~
-    
+
     References:
         http://wiki.phpbb.com/Tables
         https://github.com/phpbb/phpbb3/tree/master/phpBB/install/schemas
@@ -714,7 +714,8 @@ class Post(models.Model):
         else:
             bbcode_uid = None
 
-        return clean_bbcode(self.text, bbcode_uid)
+        properUTF8string = unicode(self.text, 'utf-8')
+        return clean_bbcode(properUTF8string, bbcode_uid)
 
     def __unicode__(self):
         return u"Post %i: %s" % (self.id, self.teaser())
@@ -1340,7 +1341,7 @@ class CaptchaQuestions(models.Model):
 class Confirm(models.Model):
     """
     Contains session information for confirm pages ("are you sure you want to delete foo")
-    
+
     Note: Not really supported mode, because no field is really unique!!!
     """
     id = models.CharField(max_length=96, primary_key=True, db_column="session_id",
