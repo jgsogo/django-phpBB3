@@ -172,9 +172,9 @@ class Command(BaseCommand):
 
             # FIXME:
             #     * Clean username (remove non-ascii)
-            filters = getattr(settings, 'DJANGO_PHPBB3_USER_MATCH_FILTER', [ ('email', 'iexact', '%(user_email)s'), ])
+            filters = getattr(settings, 'DJANGO_PHPBB3_USER_MATCH_FILTER', [ ('email__iexact', '%(email)s'), ])
             model_dict = model_to_dict(phpbb_user)
-            kwargs = { '{0}__{1}'.format(k, v) : z % model_dict  for k,v,z in filters}
+            kwargs = { k : v % model_dict  for k,v in filters}
             try:
                 django_user = User.objects.get(**kwargs)
                 self.stdout.write(u"\tUser '%s' exists.\n" % smart_unicode(django_user.username))
@@ -182,15 +182,14 @@ class Command(BaseCommand):
                 django_user = User.objects.create(
                     username=phpbb_user.username,
                     email=phpbb_user.email,
+                    password=User.objects.make_random_password(),
                     is_staff=False,
-                    is_active=False,
+                    is_active=True,
                     is_superuser=False,
                     last_login=last_login,
                     date_joined=phpbb_user.registration_datetime(),
                     )
                 self.stdout.write(u"\tUser '%s' created.\n" % smart_unicode(django_user.username))
-                django_user.set_unusable_password()
-                django_user.save()
                 on_migrated_user = getattr(settings, 'DJANGO_PHPBB3_ON_USER_MIGRATION', None)
                 if callable(on_migrated_user):
                     on_migrated_user(django_user)
