@@ -17,6 +17,7 @@ import time
 import shutil
 import pprint
 from django.utils.encoding import smart_unicode
+from django.utils.timezone import utc
 
 if __name__ == "__main__":
     os.environ["DJANGO_SETTINGS_MODULE"] = "phpBB2DjangoBB_project.settings"
@@ -167,7 +168,7 @@ class Command(BaseCommand):
             last_login = phpbb_user.lastvisit_datetime()
             if not last_login:
                 # can't be None in User model:
-                last_login = datetime.datetime(year=datetime.MINYEAR, month=1, day=1)
+                last_login = datetime.datetime(year=datetime.MINYEAR, month=1, day=1, tzinfo=utc)
 
             # FIXME:
             #     * Clean username (remove non-ascii)
