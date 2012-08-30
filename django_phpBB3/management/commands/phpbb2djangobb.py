@@ -33,6 +33,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models.signals import post_save
+from django.forms.models import model_to_dict
 
 from djangobb_forum import settings as forum_settings
 from djangobb_forum.models import Category, Forum, Profile, TZ_CHOICES, Post, Topic, \
@@ -168,6 +169,33 @@ class Command(BaseCommand):
                 # can't be None in User model:
                 last_login = datetime.datetime(year=datetime.MINYEAR, month=1, day=1)
 
+            filters = getattr(settings, 'DJANGO_PHPBB3_USER_MATCH_FILTER', [ ('email', 'iexact', '%(user_email)s'), ])
+            model_dict = model_to_dict(phpbb_user)
+            kwargs = { '{0}__{1}'.format(k, v) : z % model_dict  for k,v,z in filters}
+            try:
+                django_user = User.objects.get(**kwargs)
+                self.stdout.write(u"\tUser '%s' exists.\n" % smart_unicode(django_user.username))
+            except User.DoesNotExist:
+                django_user = User.objects.create(
+                    username=phpbb_user.username,
+                    email=phpbb_user.email,
+                    is_staff=False,
+                    is_active=False,
+                    is_superuser=False,
+                    last_login=last_login,
+                    date_joined=phpbb_user.registration_datetime(),
+                    )
+                self.stdout.write(u"\tUser '%s' created.\n" % smart_unicode(django_user.username))
+                django_user.set_unusable_password()
+                django_user.save()
+                on_migrated_user = getattr(settings, 'DJANGO_PHPBB3_ON_USER_MIGRATION', None)
+                if callable(on_migrated_user):
+                    on_new_user(django_user)
+            except User.MultipleObjectsReturned, e:
+                msg = u"Multiple users match your filter '%s'. You must refine it." % filters
+                self._warn(msg)
+                continue
+            """
             django_user, created = User.objects.get_or_create(
                 username=phpbb_user.username,
                 defaults={
@@ -179,13 +207,14 @@ class Command(BaseCommand):
                     "date_joined": phpbb_user.registration_datetime(),
                 }
             )
+
             if created:
                 self.stdout.write(u"\tUser '%s' created.\n" % smart_unicode(django_user.username))
                 django_user.set_unusable_password()
                 django_user.save()
             else:
                 self.stdout.write(u"\tUser '%s' exists.\n" % smart_unicode(django_user.username))
-
+            """
             if phpbb_user.group in moderator_groups:
                 self.stdout.write(u"\t *** Mark user '%s' as global forum moderator\n" % phpbb_user)
                 moderators.append(django_user)
