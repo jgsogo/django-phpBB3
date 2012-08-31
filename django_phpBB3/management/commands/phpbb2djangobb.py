@@ -50,7 +50,8 @@ from django_phpBB3.models import User as phpbb_User
 from django_phpBB3.unsupported_models import get_topic_watch
 from django_phpBB3.utils import ProcessInfo, human_duration
 
-
+USER_MATCH_FILTER = getattr(settings, 'DJANGO_PHPBB3_USER_MATCH_FILTER', [ ('email__iexact', '%(email)s'), ])
+ON_USER_MIGRATION = getattr(settings, 'DJANGO_PHPBB3_ON_USER_MIGRATION', None)
 
 def disable_auto_fields(model_class):
     """
@@ -172,9 +173,8 @@ class Command(BaseCommand):
 
             # FIXME:
             #     * Clean username (remove non-ascii)
-            filters = getattr(settings, 'DJANGO_PHPBB3_USER_MATCH_FILTER', [ ('email__iexact', '%(email)s'), ])
             model_dict = model_to_dict(phpbb_user)
-            kwargs = { k : v % model_dict  for k,v in filters}
+            kwargs = { k : v % model_dict  for k,v in USER_MATCH_FILTER}
             try:
                 django_user = User.objects.get(**kwargs)
                 self.stdout.write(u"\tUser '%s' exists.\n" % smart_unicode(django_user.username))
@@ -190,9 +190,8 @@ class Command(BaseCommand):
                     date_joined=phpbb_user.registration_datetime(),
                     )
                 self.stdout.write(u"\tUser '%s' created.\n" % smart_unicode(django_user.username))
-                on_migrated_user = getattr(settings, 'DJANGO_PHPBB3_ON_USER_MIGRATION', None)
-                if callable(on_migrated_user):
-                    on_migrated_user(django_user)
+                if ON_USER_MIGRATION and callable(ON_USER_MIGRATION):
+                    ON_USER_MIGRATION(django_user)
             except User.MultipleObjectsReturned, e:
                 msg = u"Multiple users match your filter '%s'. You must refine it." % filters
                 self._warn(msg)
