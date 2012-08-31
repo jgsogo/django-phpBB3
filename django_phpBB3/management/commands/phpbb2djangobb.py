@@ -19,6 +19,10 @@ import pprint
 from django.utils.encoding import smart_unicode
 from django.utils.timezone import utc
 
+from django.template.defaultfilters import slugify
+from unidecode import unidecode
+from types import UnicodeType
+
 if __name__ == "__main__":
     os.environ["DJANGO_SETTINGS_MODULE"] = "phpBB2DjangoBB_project.settings"
     from django.core import management
@@ -140,6 +144,23 @@ class Command(BaseCommand):
             ) % djangobb_path
             raise CommandError(msg)
 
+    def create_unique_username(self, username):
+        s = username
+        if type(s) != UnicodeType:
+            s = unicode(s, 'utf-8', 'ignore')
+        s = unidecode(s)
+        s = smart_unicode(s)
+        s = slugify(s)
+        counter = 1
+        orig_name = s
+        while True:
+            not_unique = User.objects.filter(username=s)
+            if len(not_unique) == 0:
+                return s
+            s = '%s_%s' % (orig_name, counter)
+            counter += 1
+
+
 
     def migrate_users(self, cleanup_users, moderator_groups):
         self.stdout.write(u"\n *** Migrate phpbb_forum users...\n")
@@ -179,8 +200,10 @@ class Command(BaseCommand):
                 django_user = User.objects.get(**kwargs)
                 self.stdout.write(u"\tUser '%s' exists.\n" % smart_unicode(django_user.username))
             except User.DoesNotExist:
+                s = self.create_unique_username(phpbb_user.username)
+
                 django_user = User.objects.create(
-                    username=phpbb_user.username,
+                    username=s,
                     email=phpbb_user.email,
                     password=User.objects.make_random_password(),
                     is_staff=False,
